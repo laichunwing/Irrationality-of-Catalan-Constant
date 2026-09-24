@@ -1,0 +1,103 @@
+from sage.all import *
+
+def hdr(title):
+    print("=" * 72)
+    print(title)
+    print("=" * 72)
+
+RESULTS = []
+
+def record(name, condition, detail=""):
+    RESULTS.append((name, bool(condition), detail))
+    status = "PASS" if condition else "FAIL"
+    print(f"[{status}] {name}")
+    if detail:
+        print(f"       {detail}")
+    return condition
+
+
+def module9_archimedean():
+    hdr("Module 9: Archimedean bound on log|q_B'|")
+    R = RealField(300)
+
+    def log_prod_Pi(B, S):
+        N = 2*B + S + 3
+        total = R(0)
+        for k in range(1, N + B):
+            if k <= B:
+                c = k
+            elif k <= N:
+                c = B
+            else:
+                c = N + B - k
+            total += 2 * c * log(R(2*k + 1))
+        return total
+
+    # Part A
+    print("  Part A: Leading coefficient of log(prod Pi_i)")
+    print("  Predicted: 2(N/B) -> 4.1")
+    print(f"  {'B':>6}  {'log prod Pi_i':>20}  {'R(B)':>15}")
+    data = []
+    for B in [200, 500, 1000, 2000, 5000, 10000]:
+        S = B // 20
+        lp = log_prod_Pi(B, S)
+        R_B = float(lp) / (B*B*float(log(B)))
+        data.append((B, R_B))
+        print(f"  {B:6d}  {float(lp):20.6f}  {R_B:15.8f}")
+
+    B1, R1 = data[-2]
+    B2, R2 = data[-1]
+    x1, x2 = 1.0/float(log(B1)), 1.0/float(log(B2))
+    slope = (R1 - R2) / (x1 - x2)
+    L_extrap = R2 - slope * x2
+    print(f"\n  Extrapolated limit L = {L_extrap:.6f}")
+    record("Leading coefficient of log(prod Pi_i) = 4.1",
+           abs(L_extrap - 4.1) < 0.1,
+           f"L_extrap = {L_extrap:.6f}")
+
+    # Part B
+    print("\n  Part B: Net archimedean coefficient")
+    print(f"  {'B':>6}  {'S':>4}  {'N':>6}  {'Net coef / B^2':>18}")
+    net_coef = 0.0
+    for B in [100, 500, 1000, 5000, 10000]:
+        S = B // 20
+        N = 2*B + S + 3
+        net_coef = float((S - N) * 2 * B) / (B*B)
+        print(f"  {B:6d}  {S:4d}  {N:6d}  {net_coef:18.8f}")
+    record("Net coefficient approaches -4",
+           abs(net_coef - (-4)) < 0.01,
+           f"at B=10000, net coef = {net_coef:.8f}")
+
+    # Part C
+    print("\n  Part C: Hadamard bound on log|det R[A,J]|")
+    print(f"  {'B':>5}  {'S':>4}  {'log Pi_N-1':>14}  "
+          f"{'log|det| bd':>14}  {'ratio':>12}")
+    ok_had = True
+    for B in [50, 100, 200, 400, 800, 1600]:
+        S = B // 20
+        N = 2*B + S + 3
+        log_Pi_Nm1 = sum(2*log(R(2*(N - 1 + h) + 1))
+                         for h in range(1, B+1))
+        log_bound_R = float(log_Pi_Nm1) + (N - 1)*float(log(R(2)))
+        log_bound_det = S*(0.5*float(log(R(S))) + log_bound_R)
+        log_prod = float(log_prod_Pi(B, S))
+        ratio = log_bound_det / log_prod
+        print(f"  {B:5d}  {S:4d}  {float(log_Pi_Nm1):14.4f}  "
+              f"{log_bound_det:14.4f}  {ratio:12.8f}")
+        if ratio > 1:
+            ok_had = False
+    record("Hadamard bound is subdominant", ok_had,
+           "all ratios < 1")
+
+    # Part D
+    print("\n  Part D: Combined archimedean leading coefficient")
+    print("  Leading coefficient = -2(2B + 3)/B -> -4.")
+    B_final = 10000
+    leading = -2.0 * (2*B_final + 3) / B_final
+    print(f"\n  At B = {B_final}, leading coefficient = {leading:.8f}")
+    record("Combined leading coefficient is -4",
+           abs(leading + 4) < 0.01,
+           f"leading = {leading:.8f}")
+
+
+module9_archimedean()

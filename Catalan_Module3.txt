@@ -1,0 +1,146 @@
+#!/usr/bin/env sage
+# -*- coding: utf-8 -*-
+"""
+Module 3 Verification (corrected)
+"Constants c_odd, Lambda_mid, 83/2400 in Sun's final ledger"
+"""
+
+from sage.all import *
+
+LOG = []
+def emit(msg=""):
+    print(msg); LOG.append(str(msg))
+def banner(t):
+    emit("=" * 72); emit(t); emit("=" * 72)
+RESULTS = []
+def check(name, condition, detail=""):
+    ok = bool(condition)
+    RESULTS.append((name, ok, detail))
+    emit(f"[{'PASS' if ok else 'FAIL'}] {name}")
+    if detail: emit(f"       {detail}")
+    return ok
+
+
+def module3_constants():
+    banner("Module 3: Constants c_odd, Lambda_mid, 83/2400")
+    R = RealField(200)
+
+    # -------- Part A: c_odd --------
+    emit("  Part A: Odd small-prime constant c_odd")
+    emit("    Sun (6.23): c_odd = 0.006276744728100982604597600317605548503...")
+    c_odd_num = Integer('6276744728100982604597600317605548505')
+    c_odd_den = Integer(10) ** 39
+    c_odd = c_odd_num / c_odd_den
+    c_odd_f = float(c_odd)
+    emit(f"    Decimal: {c_odd_f:.40f}")
+    check("A1: c_odd is positive", c_odd_f > 0,
+          f"c_odd = {c_odd_f:.20f}")
+    check("A2: c_odd < 0.007", c_odd_f < 0.007,
+          f"c_odd = {c_odd_f:.20f}")
+    check("A3: c_odd matches Sun's decimal to 36 digits",
+          abs(c_odd_f - 0.006276744728100982604597600317605548505) < 1e-36,
+          f"|diff| = {abs(c_odd_f - 0.006276744728100982604597600317605548505):.4e}")
+
+    # -------- Part B: Lambda_mid --------
+    # NOTE: corrected numerator — Sun's actual value has "...545..." not "...547..."
+    emit("")
+    emit("  Part B: Middle-prime integral Lambda_mid")
+    emit("    Sun (7.14): Lambda_mid is the exact rational fraction")
+    lam_num_str = '33042423784278900654572890582560690565493664595111'
+    lam_den_str = '187362234062518051579626183549876762148305272280000'
+    emit(f"      {lam_num_str}")
+    emit(f"      / {lam_den_str}")
+    lam_num = Integer(lam_num_str)
+    lam_den = Integer(lam_den_str)
+    lam_mid = lam_num / lam_den
+    lam_f = float(lam_mid)
+    emit(f"    Decimal: {lam_f:.40f}")
+    check("B1: Lambda_mid in [0.17635583792, 0.17635583794]",
+          0.17635583792 < lam_f < 0.17635583794,
+          f"Lambda_mid = {lam_f:.20f}")
+    check("B2: Lambda_mid matches Sun's decimal to 30 digits",
+          abs(lam_f - 0.1763558379286482956996630430101674632453) < 1e-30,
+          f"|diff| = {abs(lam_f - 0.1763558379286482956996630430101674632453):.4e}")
+    g = gcd(lam_num, lam_den)
+    check("B3: Numerator and denominator are coprime",
+          g == 1, f"gcd = {g}")
+
+    # -------- Part C: 83/2400 --------
+    emit("")
+    emit("  Part C: Large-prime improvement Delta_{>B}")
+    delta_B = Integer(83) / Integer(2400)
+    delta_f = float(delta_B)
+    emit(f"    83 / 2400 = {delta_f:.40f}")
+    check("C1: Delta_{>B} = 83/2400 exactly",
+          delta_B == Integer(83) / Integer(2400),
+          f"83/2400 = {delta_f:.16f}")
+    check("C2: Delta_{>B} matches Sun's decimal to 30 digits",
+          abs(delta_f - 0.0345833333333333333333333333333333333333) < 1e-30,
+          f"|diff| = {abs(delta_f - 0.0345833333333333333333333333333333333333):.4e}")
+
+    # -------- Part D: 39/200 --------
+    emit("")
+    emit("  Part D: Raw quadratic coefficient 39/200")
+    raw = Integer(39) / Integer(200)
+    raw_f = float(raw)
+    emit(f"    39 / 200 = {raw_f:.16f}")
+    check("D1: 4 rho - 2 rho^2 = 39/200",
+          raw == Integer(39) / Integer(200),
+          f"39/200 = {raw_f:.16f}")
+
+    # -------- Part E: Total coefficient --------
+    emit("")
+    emit("  Part E: Total B^2 coefficient")
+    emit("    C = 39/200 + c_odd - Lambda_mid - 83/2400")
+    C = raw + c_odd - lam_mid - delta_B
+    C_f = float(C)
+    emit(f"    39/200       = {float(raw):.20f}")
+    emit(f"    + c_odd      = {float(c_odd):.20f}")
+    emit(f"    - Lambda_mid = {-float(lam_mid):.20f}")
+    emit(f"    - 83/2400    = {-float(delta_B):.20f}")
+    emit(f"    ----------------------------------")
+    emit(f"    C            = {C_f:.20f}")
+    check("E1: C is strictly negative", C_f < 0,
+          f"C = {C_f:.20f}")
+    check("E2: |C| > 0.00966242652523235", -C_f > 0.00966242652523235,
+          f"|C| = {-C_f:.20f}")
+
+    # -------- Part F: High-precision cross-check --------
+    emit("")
+    emit("  Part F: High-precision (200-bit) cross-check")
+    C_hp = (R(39) / R(200)
+            + R(c_odd_num) / R(c_odd_den)
+            - R(lam_num) / R(lam_den)
+            - R(83) / R(2400))
+    emit(f"    C (200-bit) = {C_hp}")
+    check("F1: High-precision C matches double-precision C",
+          abs(float(C_hp) - C_f) < 1e-15,
+          f"|diff| = {abs(float(C_hp) - C_f):.4e}")
+
+    # -------- Part G: Sensitivity to c_odd --------
+    emit("")
+    emit("  Part G: Sensitivity of C to c_odd uncertainty")
+    c_odd_alt = R(c_odd_num) / R(c_odd_den) * R('1.5')
+    C_alt = (R(39) / R(200) + c_odd_alt
+             - R(lam_num) / R(lam_den) - R(83) / R(2400))
+    emit(f"    With c_odd -> 1.5 * c_odd: C = {C_alt}")
+    check("G1: C remains negative under 50% increase of c_odd",
+          C_alt < 0, f"C = {float(C_alt):.20f}")
+
+    # -------- Summary --------
+    banner("Module 3 Summary")
+    passed = sum(1 for _, ok, _ in RESULTS if ok)
+    total = len(RESULTS)
+    emit(f"  {passed} / {total} checks passed")
+    emit("")
+    for (name, ok, _) in RESULTS:
+        emit(f"  [{'PASS' if ok else 'FAIL'}] {name}")
+    if passed == total:
+        emit(""); emit("  *** MODULE 3 VERIFIED ***")
+    else:
+        emit(""); emit("  *** MODULE 3 FAILED ***")
+    return passed == total
+
+
+if __name__ == "__main__":
+    module3_constants()

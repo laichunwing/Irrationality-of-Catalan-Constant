@@ -1,0 +1,60 @@
+========================================================================
+Module 1: Missing 2-adic term v_2(F_B) log 2
+========================================================================
+  Legendre formula: v_2(r!) = r - s_2(r)
+  Table of v_2(F_B) and ratio v_2(F_B)/B^2:
+       B       v_2(F_B)         ratio
+      10             150      1.500000
+      20             680      1.700000
+      50            4634      1.853600
+     100           19168      1.916800
+     200           78136      1.953400
+     500          494568      1.978272
+    1000         1988136      1.988136
+    2000         7974272      1.993568
+    4000        31932288      1.995768
+[PASS] v_2(F_B) / B^2 -> 2 as B -> infinity
+       at B=4000, ratio = 1.995768
+
+  Missing term leading coefficient: 2 log 2 = 1.3862943611
+[PASS] Missing 2-adic term has coefficient 2 log 2
+       2 log 2 = 1.3862943611198906
+
+  Sun's final ledger components:
+    39/200              = 0.1950000000000000
+    c_odd               = 0.00627674472810098260
+    -Lambda_mid         = -0.17635583792864829570
+    -83/2400            = -0.0345833333333333
+    --------------------------------
+    Sun's coefficient C = -0.0096624265338806
+[PASS] Sun's coefficient C is strictly negative
+       C = -0.0096624265338806
+
+  Corrected coefficient: C + 2 log 2 = 1.376632
+
+[PASS] Adding the missing term makes the coefficient positive
+       C + 2 log 2 = 1.376632 > 0
+
+  Consequence: the final margin is no longer negative,
+  so the contradiction 0 < |N_B| < 1 cannot be derived.
+[PASS] Missing term invalidates Sun's negative margin
+       C + 2 log 2 = 1.376632 > 0
+
+  High-precision (200-bit) corrected coefficient:
+    C + 2 log 2 = 1.37663193458585000000
+[PASS] High-precision corrected coefficient is positive
+       C + 2 log 2 = 1.37663193458585000000
+
+========================================================================
+Module 1 Summary
+========================================================================
+  6 / 6 checks passed
+
+  [PASS] v_2(F_B) / B^2 -> 2 as B -> infinity
+  [PASS] Missing 2-adic term has coefficient 2 log 2
+  [PASS] Sun's coefficient C is strictly negative
+  [PASS] Adding the missing term makes the coefficient positive
+  [PASS] Missing term invalidates Sun's negative margin
+  [PASS] High-precision corrected coefficient is positive
+
+  *** MODULE 1 VERIFIED ***

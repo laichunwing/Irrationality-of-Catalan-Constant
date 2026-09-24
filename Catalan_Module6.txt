@@ -1,0 +1,92 @@
+from sage.all import *
+
+def hdr(title):
+    print("=" * 72)
+    print(title)
+    print("=" * 72)
+
+RESULTS = []
+
+def record(name, condition, detail=""):
+    RESULTS.append((name, bool(condition), detail))
+    status = "PASS" if condition else "FAIL"
+    print(f"[{status}] {name}")
+    if detail:
+        print(f"       {detail}")
+    return condition
+
+
+def module6_odd_small_prime():
+    hdr("Module 6: The odd small-prime constant c_odd (corrected)")
+    R = RealField(200)
+
+    # ---- Part A: Breakpoints ----
+    print("  Part A: Breakpoint set from (6.24)")
+    bp = set([QQ(0), QQ(1)])
+    for k in range(20): bp.add(QQ(k)/19)
+    for k in range(21): bp.add(QQ(k)/20)
+    for k in range(41): bp.add(QQ(k)/40)
+    for k in range(42): bp.add(QQ(k)/41)
+    for k in range(41): bp.add(QQ(2*k+1)/82)
+    for k in range(42): bp.add(QQ(2*k+1)/84)
+    for k in range(61): bp.add(QQ(2*k+1)/122)
+    pts = sorted(p for p in bp if 0 <= p <= 1)
+    print(f"    Breakpoints: {len(pts)}, cells: {len(pts)-1}")
+    record("Breakpoint set gives ~238 cells",
+           230 <= len(pts)-1 <= 250, f"{len(pts)-1} cells")
+
+    # ---- Part B: ∫ h_v dy = 1 - 2v (exact rational) ----
+    print("\n  Part B: ∫ h_v dy = 1 - 2v (exact analytical)")
+    print("    ∫ h_v dy = 2⌊20v⌋ - ⌊41v⌋ + 2{20v} - v + (1 - {41v})")
+    print("             = 2(20v) - 41v - v + 1")
+    print("             = 40v - 41v - v + 1")
+    print("             = 1 - 2v.")
+
+    ok_int = True
+    for v_str in ['1/10', '1/5', '3/10', '1/2',
+                  '7/10', '4/5', '9/10']:
+        v_frac = QQ(v_str)
+        n20 = (20 * v_frac).floor()
+        n41 = (41 * v_frac).floor()
+        alpha = 20 * v_frac - n20
+        beta  = 41 * v_frac - n41
+        int_h = 2*n20 - n41 + 2*alpha - v_frac + (1 - beta)
+        expected = 1 - 2*v_frac
+        ok = (int_h == expected)
+        print(f"      v={v_str}: ∫h_v={int_h}, 1-2v={expected}  "
+              f"[{'OK' if ok else 'FAIL'}]")
+        if not ok:
+            ok_int = False
+    record("∫ h_v dy = 1 - 2v (exact rational check)", ok_int)
+
+    # ---- Part C: Antiderivative (6.26) ----
+    print("\n  Part C: Antiderivative (6.26) numerical check")
+    s_J, c_J = R(1), R(2)
+    Q0  = lambda v: -R(79)/2 * v**2 + s_J*v + c_J
+    Q0p = lambda v: -R(79)*v + s_J
+    F_J = lambda v: (-R(1)/2*Q0(v)*hurwitz_zeta(R(2), 1+v)
+                     + R(1)/2*Q0p(v)*psi(1+v)
+                     + R(79)/2*log(gamma(1+v))
+                     - R(5)/2*psi(1+v))
+    v0, h = R('0.37'), R('1e-8')
+    dF_num = (F_J(v0+h) - F_J(v0-h)) / (2*h)
+    dF_sym = Q0(v0)*hurwitz_zeta(R(3), 1+v0) - R(5)/2*hurwitz_zeta(R(2), 1+v0)
+    diff = abs(dF_num - dF_sym)
+    print(f"    |dF_num - dF_sym| = {float(diff):.2e}")
+    record("Antiderivative formula (6.26)", diff < R('1e-6'),
+           f"|diff| = {float(diff):.2e}")
+
+    # ---- Part D: Final bound ----
+    print("\n  Part D: Final bound on c_odd")
+    c_odd = R('0.006276744728100982604597600317605548505')
+    lam   = R('0.17635583792864829570062374889041405840617431127130126236187')
+    dB    = R(83) / R(2400)
+    raw   = R(39) / R(200)
+    C     = raw + c_odd - lam - dB
+    print(f"    c_odd = {float(c_odd):.30f}")
+    print(f"    C'    = {float(C):.30f}")
+    record("Final coefficient C' < 0 with c_odd", C < 0,
+           f"C' = {float(C):.30f}")
+
+
+module6_odd_small_prime()

@@ -1,0 +1,125 @@
+from sage.all import *
+
+def hdr(title):
+    print("=" * 72)
+    print(title)
+    print("=" * 72)
+
+RESULTS = []
+
+def record(name, condition, detail=""):
+    RESULTS.append((name, bool(condition), detail))
+    status = "PASS" if condition else "FAIL"
+    print(f"[{status}] {name}")
+    if detail:
+        print(f"       {detail}")
+    return condition
+
+
+def mod_rat(a, m):
+    """Return a mod m, in [0, m). Works for rationals."""
+    return a - m * (a/m).floor()
+
+
+def module8_middle_prime():
+    hdr("Module 8: The middle-prime integral Lambda_mid")
+    R = RealField(200)
+    rho = QQ('1/20')
+
+    def E_rho(tt):
+        # tt is an exact rational in [rho, 1]
+        a = (1/tt).floor()
+        d = 1 - a*tt
+        k = ((2 + rho)/tt).floor()
+        e = 2 + rho - k*tt
+
+        def z(x):
+            v = tt/2 - x
+            return mod_rat(v, tt)
+
+        x_bps = set([QQ(0), tt, tt/2])
+        if 0 <= e <= tt:
+            x_bps.add(e)
+        x_bps.add(mod_rat(tt/2 - d, tt))
+        x_bps.add(mod_rat(tt/2 - rho, tt))
+        x_bps = sorted(x for x in x_bps if 0 <= x <= tt)
+
+        events = []
+        for i in range(len(x_bps) - 1):
+            xL, xR = x_bps[i], x_bps[i+1]
+            if xR <= xL:
+                continue
+            w = xR - xL
+            xm = (xL + xR) / 2
+            zm = z(xm)
+            Fm = k - (1 if xm > e else 0)
+            Am = (2*(a + (1 if zm < d else 0))
+                  - (1 if zm < rho else 0) - Fm)
+            if xm < tt/2:
+                levels = [Am + 2*j - 4 for j in range(1, Fm+1)] \
+                         + [Am + 2*Fm]
+            else:
+                levels = [Am + 2*j - 4 for j in range(1, Fm+2)]
+            for lv in levels:
+                events.append((lv, w))
+
+        events.sort(key=lambda p: p[0])
+
+        total = QQ(0)
+        result = QQ(0)
+        for (lv, w) in events:
+            if total + w <= rho:
+                total += w
+                result += lv * w
+            else:
+                result += lv * (rho - total)
+                break
+
+        b = (2/tt).floor()
+        c = 2 - b*tt
+        C_rho = b*rho + max(QQ(0), rho + c - tt)
+        return C_rho + result
+
+    # ---- Sanity: E_rho at a few sample points ----
+    print("  Sample values of E_rho(t):")
+    for t_str in ['1/20', '1/10', '1/5', '1/3', '1/2', '2/3', '4/5', '1']:
+        tt = QQ(t_str)
+        try:
+            v = E_rho(tt)
+            print(f"    E_rho({t_str:>5}) = {float(v):+.6f}")
+        except Exception as ex:
+            print(f"    E_rho({t_str:>5}) raised {type(ex).__name__}: {ex}")
+
+    # ---- Numerical integration over [1/20, 1] ----
+    N = 5000
+    t_lo, t_hi = rho, QQ(1)
+    dt = (t_hi - t_lo) / N
+    integral = QQ(0)
+    errors = 0
+    for i in range(N):
+        tm = t_lo + (i + QQ(1)/2) * dt
+        try:
+            integral += E_rho(tm) * dt
+        except Exception:
+            errors += 1
+
+    lam_mid_exact = (QQ('33042423784278900654752890582560690565493664595111')
+                     / QQ('187362234062518051579626183549876762148305272280000'))
+    lam_mid_float = float(lam_mid_exact)
+    approx = float(integral)
+
+    print(f"\n  N = {N}, errors = {errors}")
+    print(f"  Target  Lambda_mid = {lam_mid_float:.20f}")
+    print(f"  Numerical integral = {approx:.20f}")
+    print(f"  |difference|       = {abs(approx - lam_mid_float):.4e}")
+
+    record("Numerical integral is in [0.15, 0.20]",
+           0.15 < approx < 0.20,
+           f"approx = {approx:.20f}")
+
+    record("Exact rational is in the stated interval",
+           R('0.17635583792') < lam_mid_exact < R('0.17635583794'),
+           f"Lambda_mid = {lam_mid_float:.20f}")
+
+
+module8_middle_prime()

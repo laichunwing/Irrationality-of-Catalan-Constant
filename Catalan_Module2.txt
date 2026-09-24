@@ -1,0 +1,246 @@
+#!/usr/bin/env sage
+# -*- coding: utf-8 -*-
+"""
+Module 2 Verification
+"Elimination of F_B via binomial reference columns"
+
+Self-contained. Run with:
+    sage verify_module2.sage
+or paste into a single SageMath cell.
+"""
+
+from sage.all import *
+
+# ----------------------------------------------------------------------
+# Utilities
+# ----------------------------------------------------------------------
+
+LOG = []
+
+def emit(msg=""):
+    print(msg)
+    LOG.append(str(msg))
+
+def banner(title):
+    bar = "=" * 72
+    emit(bar); emit(title); emit(bar)
+
+RESULTS = []
+
+def check(name, condition, detail=""):
+    ok = bool(condition)
+    RESULTS.append((name, ok, detail))
+    status = "PASS" if ok else "FAIL"
+    emit(f"[{status}] {name}")
+    if detail:
+        emit(f"       {detail}")
+    return ok
+
+
+# ----------------------------------------------------------------------
+# Module 2
+# ----------------------------------------------------------------------
+
+def module2_binomial_elimination():
+    banner("Module 2: Elimination of F_B via binomial reference columns")
+
+    # ==============================================================
+    # Part A: Finite-difference identity on binomial columns
+    # ==============================================================
+    emit("  Part A: Finite-difference identity")
+    emit("    sum_{i=0}^n (-1)^i C(n,i) C(i,r) = (-1)^n delta_{n,r}")
+
+    ok_A = True
+    for n in range(20):
+        for r in range(20):
+            lhs = sum((-1)**i * binomial(n, i) * binomial(i, r)
+                      for i in range(n + 1))
+            rhs = (-1)**n if n == r else 0
+            if lhs != rhs:
+                ok_A = False
+                emit(f"    FAIL at n={n}, r={r}: {lhs} != {rhs}")
+    check("A: Finite-difference identity on binomial columns",
+          ok_A, "verified for n,r in [0,19]")
+
+    # ==============================================================
+    # Part B: Change-of-basis determinant = F_B
+    # ==============================================================
+    emit("")
+    emit("  Part B: Change of basis from binomial to monomial columns")
+    emit("    i^r = sum_k S(r,k) k! C(i,k)  (Stirling numbers of 2nd kind)")
+    emit("    det[S(r,k) k!] = prod_{k=0}^{D-1} k! = F_B")
+
+    ok_B = True
+    for D in [2, 3, 4, 5, 6, 7]:
+        M = matrix(ZZ, D, D)
+        for r in range(D):
+            for k in range(D):
+                M[r, k] = stirling_number2(r, k) * factorial(k)
+        det_M = M.det()
+        expected = prod(factorial(k) for k in range(D))
+        if det_M != expected:
+            ok_B = False
+            emit(f"    FAIL at D={D}: det = {det_M} != {expected}")
+        else:
+            emit(f"    D={D}: det = {det_M} = {expected}  [OK]")
+    check("B: Change-of-basis determinant equals F_B",
+          ok_B, "verified for D = 2..7")
+
+    # ==============================================================
+    # Part C: Rank theorem via symbolic computation over Q(G)
+    # ==============================================================
+    emit("")
+    emit("  Part C: Rank theorem for small (B, S)")
+    emit("    Residual matrix R_{a,j} = sum_{i=0}^{a+2B} (-1)^i C(a+2B,i)")
+    emit("                              * Pi_i * u_{i+j}")
+    emit("    where Pi_i = prod_{h=0}^{B-1} (2(i+h)+1)^2,")
+    emit("          T_m  = (-1)^m (G - S_{m-1}),")
+    emit("          S_{m-1} = sum_{k=0}^{m-1} (-1)^k / (2k+1)^2,")
+    emit("          u_m = T_m / (2m+1).")
+    emit("    Symbolic G over Q(G); expect rank = S.")
+
+    ok_C = True
+    for B in [2, 3, 4, 5, 6, 7, 8]:
+        for S in range(1, B):
+            P = PolynomialRing(QQ, 'G')
+            G = P.gen()
+            F = P.fraction_field()
+
+            # Size the partial sum array generously:
+            # maximum index needed is (a + 2B) + j with
+            # a = S+2, j = S, i.e. max_m = 2B + 2S + 2.
+            max_m = 2 * B + 2 * S + 4
+            S_part = [F(0)] * (max_m + 2)
+            for m in range(1, max_m + 2):
+                k = m - 1
+                S_part[m] = S_part[m-1] + F((-1)**k) / F(2*k + 1)**2
+
+            def T_m(m):
+                return F((-1)**m) * (G - S_part[m])
+
+            def u_m(m):
+                return T_m(m) / F(2*m + 1)
+
+            def Pi(i):
+                p = F(1)
+                for h in range(B):
+                    p *= F(2*(i+h) + 1)**2
+                return p
+
+            # Build the (S+3) x S residual matrix over Q(G)
+            Rm = matrix(F, S + 3, S)
+            for a in range(S + 3):
+                n_a = a + 2*B
+                for j in range(1, S + 1):
+                    s = F(0)
+                    for i in range(n_a + 1):
+                        s += (F((-1)**i) * binomial(n_a, i)
+                              * Pi(i) * u_m(i + j))
+                    Rm[a, j-1] = s
+
+            rank = Rm.rank()
+            ok = (rank == S)
+            if not ok:
+                ok_C = False
+            emit(f"    B={B:2d}, S={S:2d}: rank = {rank}, expected {S}  "
+                 f"[{'OK' if ok else 'FAIL'}]")
+
+    check("C: Rank theorem holds for small (B, S)",
+          ok_C, "symbolic rank over Q(G) for B <= 8")
+
+    # ==============================================================
+    # Part D: Explicit rank over a finite field for larger B, S
+    # ==============================================================
+    emit("")
+    emit("  Part D: Rank theorem over GF(p) for larger (B, S)")
+    p = Integer(2)**61 - 1   # Mersenne prime 2^61 - 1
+    emit(f"    Prime p = {p}")
+
+    import random
+
+    def R_mod_p(B, S, G_val):
+        Fp = GF(p)
+        Gp = Fp(G_val)
+        max_i = 2 * B + S + 2
+        max_m = max_i + S
+        S_part_p = [Fp(0)] * (max_m + 2)
+        for m in range(1, max_m + 2):
+            k = m - 1
+            S_part_p[m] = S_part_p[m-1] + Fp((-1)**k) / Fp(2*k + 1)**2
+        Pi_p = [Fp(1)] * (max_i + 1)
+        for h in range(B):
+            Pi_p[0] *= Fp(2*h + 1)**2
+        for i in range(max_i):
+            Pi_p[i+1] = (Pi_p[i]
+                         * Fp(2*(i+B+1) + 1)**2
+                         / Fp(2*(i+1) + 1)**2)
+        N_total = max_i
+        binom = [[Fp(0)] * (N_total + 1) for _ in range(N_total + 1)]
+        for n in range(N_total + 1):
+            binom[n][0] = Fp(1)
+            if n > 0:
+                binom[n][n] = Fp(1)
+            for k in range(1, n):
+                binom[n][k] = binom[n-1][k-1] + binom[n-1][k]
+        Rm = matrix(Fp, S + 3, S)
+        for a in range(S + 3):
+            n_a = a + 2*B
+            for j in range(1, S + 1):
+                s = Fp(0)
+                for i in range(n_a + 1):
+                    m = i + j
+                    Tm = Fp((-1)**m) * (Gp - S_part_p[m])
+                    um = Tm / Fp(2*m + 1)
+                    s += Fp((-1)**i) * binom[n_a][i] * Pi_p[i] * um
+                Rm[a, j-1] = s
+        return Rm
+
+    test_cases = [
+        (10, 1), (10, 3), (10, 7),
+        (15, 1), (15, 5), (15, 10),
+        (20, 1), (20, 5), (20, 12),
+        (25, 1), (25, 8), (25, 15),
+        (30, 1), (30, 10), (30, 20),
+    ]
+
+    ok_D = True
+    for (B, S) in test_cases:
+        ranks = []
+        for _ in range(3):
+            G_val = random.randint(1, p - 1)
+            ranks.append(R_mod_p(B, S, G_val).rank())
+        ok = all(r == S for r in ranks)
+        if not ok:
+            ok_D = False
+        emit(f"    B={B:2d}, S={S:2d}: ranks over 3 random G = "
+             f"{ranks}, expected {S}  [{'OK' if ok else 'FAIL'}]")
+
+    check("D: Rank theorem holds mod p for larger (B, S)",
+          ok_D, f"{len(test_cases)} cases, {3*len(test_cases)} checks")
+
+    # ==============================================================
+    # Summary
+    # ==============================================================
+    banner("Module 2 Summary")
+    passed = sum(1 for _, ok, _ in RESULTS if ok)
+    total = len(RESULTS)
+    emit(f"  {passed} / {total} checks passed")
+    emit("")
+    for (name, ok, _) in RESULTS:
+        emit(f"  [{'PASS' if ok else 'FAIL'}] {name}")
+    if passed == total:
+        emit("")
+        emit("  *** MODULE 2 VERIFIED ***")
+    else:
+        emit("")
+        emit("  *** MODULE 2 FAILED ***")
+
+    return passed == total
+
+
+# ----------------------------------------------------------------------
+# Main
+# ----------------------------------------------------------------------
+
+if __name__ == "__main__":
+    module2_binomial_elimination()

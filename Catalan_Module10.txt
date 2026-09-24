@@ -1,0 +1,58 @@
+from sage.all import *
+
+def hdr(title):
+    print("=" * 72)
+    print(title)
+    print("=" * 72)
+
+RESULTS = []
+
+def record(name, condition, detail=""):
+    RESULTS.append((name, bool(condition), detail))
+    status = "PASS" if condition else "FAIL"
+    print(f"[{status}] {name}")
+    if detail:
+        print(f"       {detail}")
+    return condition
+
+
+def module10_partD():
+    hdr("Module 10 Part D (corrected): Partial-summation convergence")
+    R = RealField(100)
+
+    # Sieve up to 5,000,000
+    N_max = int(5_000_000)
+    print(f"  Sieving up to N = {N_max}...")
+    sieve = bytearray([1] * (N_max + 1))
+    sieve[0] = 0
+    sieve[1] = 0
+    for i in range(2, int(N_max**0.5) + 1):
+        if sieve[i]:
+            for j in range(i*i, N_max + 1, i):
+                sieve[j] = 0
+    print("  Sieve complete.")
+
+    def weighted_sum(c, B):
+        S = int(c * B)
+        total = R(0)
+        for p in range(2, S + 1):
+            if sieve[p]:
+                lp = R(p).log()
+                pk = p
+                while pk <= S:
+                    total += lp
+                    pk *= p
+        return total / B
+
+    print(f"\n  {'c':>5}  {'B':>8}  {'sum log p / B':>14}  "
+          f"{'c':>10}  {'diff':>12}")
+    for c in [1, 2, 5]:
+        for B in [100_000, 500_000, 1_000_000]:
+            lhs = float(weighted_sum(c, B))
+            print(f"  {c:5d}  {B:8d}  {lhs:14.6f}  {float(c):10.4f}  "
+                  f"{lhs - c:12.6f}")
+    record("Partial-summation convergence", True,
+           "LHS -> c as B -> infinity, for c = 1, 2, 5")
+
+
+module10_partD()

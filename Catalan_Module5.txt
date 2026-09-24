@@ -1,0 +1,56 @@
+========================================================================
+Module 5: Positive-part bridge and 2-adic lemma
+========================================================================
+  Part A: Phi_Q(n) = sum_{r=0}^{n-1} floor(r/Q)
+    Closed form: Phi_Q(n) = (n^2)/(2Q) - n/2 + r(Q-r)/(2Q)
+    where n = qQ + r.  Bounds: 0 <= Phi_Q(n) - (n^2/(2Q) - n/2) <= Q/8
+    All (Q, n) values satisfy the closed form and the bounds.
+[PASS] A: Phi_Q closed form and bounds
+       verified for many (Q, n)
+
+  Part B: 2-adic lemma  [A_{2,B} - R_{2,B}]_+ = 0
+    ...
+    B=   5: A_{2,B} = -30 < 0  [OK]
+    B=  10: A_{2,B} = -150 < 0  [OK]
+    B=  20: A_{2,B} = -680 < 0  [OK]
+    B=  50: A_{2,B} = -4634 < 0  [OK]
+    B= 100: A_{2,B} = -19168 < 0  [OK]
+    B= 200: A_{2,B} = -78136 < 0  [OK]
+[PASS] B: 2-adic lemma A_{2,B} < 0
+       verified for B in {5,10,20,50,100,200}
+
+  Part C: Denominator layer a_{Q,B} >= 0
+    ...
+    All 77 tested (B, Q) pairs give a_QB >= 0.
+    Minimum a_QB = 0
+[PASS] C: a_{Q,B} >= 0 for odd Q and B >= 20
+       verified for B in {20,...,500}, Q in {3,...,121}
+
+  Part D: Theorem 5.1: a_{Q,B} >= m_{Q,B}^A
+    ...
+[PASS] D: Denominator layer dominates test layer
+       verified for B in {20,...,150}, Q in {3,...,49}
+
+  Part E: Corollary 5.2 (positive-part bridge)
+    ...
+[PASS] E: Positive-part bridge (Corollary 5.2)
+       verified for p in {3,5,7,11,13}, B in {20,40,100}
+
+  Part F: Lemma 5.5 (stability of local minimum)
+    ...
+[PASS] F: Lemma 5.5 stability bound
+       verified for B in {20,40,80}, Q in {3,...,13}
+
+========================================================================
+Module 5 Summary
+========================================================================
+  6 / 6 checks passed
+
+  [PASS] A: Phi_Q closed form and bounds
+  [PASS] B: 2-adic lemma A_{2,B} < 0
+  [PASS] C: a_{Q,B} >= 0 for odd Q and B >= 20
+  [PASS] D: Denominator layer dominates test layer
+  [PASS] E: Positive-part bridge (Corollary 5.2)
+  [PASS] F: Lemma 5.5 stability bound
+
+  *** MODULE 5 VERIFIED ***
