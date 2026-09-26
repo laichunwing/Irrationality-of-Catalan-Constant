@@ -1,0 +1,232 @@
+#!/usr/bin/env sage
+# -*- coding: utf-8 -*-
+"""
+Module 2.1: Rigorous 238-cell interval certificate for c_odd
+
+This script produces a rigorous interval certificate for the odd
+small-prime constant c_odd, computed via the antiderivative formula
+
+    c_odd = (1/400) * sum_J [ F_J(b_J) - F_J(a_J) ]
+
+where the sum runs over the 238 cells of the breakpoint set B, and
+
+    F_J(v) = -1/2 Q_0(v) zeta(2, 1+v) + 1/2 Q_0'(v) psi(1+v)
+             + 79/2 log Gamma(1+v) - 5/2 psi(1+v).
+
+The special functions are enclosed with 300-bit ball arithmetic and
+Euler-Maclaurin expansions through B_24 after shifting arguments by 64.
+"""
+
+from sage.all import *
+import time
+import sys
+
+def module_2_1():
+    print("=" * 72)
+    print("Module 2.1: Rigorous 238-cell interval certificate for c_odd")
+    print("=" * 72)
+    sys.stdout.flush()
+
+    PREC = 300
+    RBF = RealBallField(PREC)
+    RF  = RealField(PREC)
+
+    # -----------------------------------------------------------------
+    # Q_0(v) built exactly from the marginal-ladder water-filling
+    # -----------------------------------------------------------------
+    def mod_rat(a, m):
+        return a - m * (a/m).floor()
+
+    def h_v_intervals(v):
+        alpha = mod_rat(20*v, 1)
+        beta  = mod_rat(41*v, 1)
+        def h_at(y):
+            zy = mod_rat(QQ(1)/2 - y, 1)
+            return (2*(20*v).floor() - (41*v).floor()
+                    + 2*(1 if zy < alpha else 0)
+                    - (1 if zy < v else 0)
+                    + (1 if y > beta else 0))
+        pts = set([QQ(0), QQ(1), QQ(1)/2, beta])
+        for tgt in [alpha, v]:
+            for k in [-1, 0, 1]:
+                p = QQ(1)/2 - tgt + k
+                if 0 <= p <= 1:
+                    pts.add(p)
+        pts = sorted(p for p in pts if 0 <= p <= 1)
+        out = []
+        for i in range(len(pts)-1):
+            mid = (pts[i] + pts[i+1]) / 2
+            out.append((h_at(mid), pts[i+1] - pts[i]))
+        merged = []
+        for (h, L) in out:
+            if merged and merged[-1][0] == h:
+                merged[-1] = (h, merged[-1][1] + L)
+            else:
+                merged.append((h, L))
+        return merged
+
+    def K_v(s, v, r_max=20):
+        intervals = h_v_intervals(v)
+        levels = []
+        for r in range(r_max):
+            for (h, L) in intervals:
+                levels.append((h + 2*r, L))
+        levels.sort(key=lambda x: x[0])
+        total = QQ(0); cost = QQ(0)
+        for (val, mass) in levels:
+            if total + mass <= s:
+                total += mass; cost += val*mass
+            else:
+                cost += val * (s - total); break
+        return cost
+
+    def Q0(v):
+        gamma = mod_rat(40*v, 1)
+        P = v + gamma - 1
+        P = P if P > 0 else QQ(0)
+        return P + v**2/2 - v*gamma + v/2 + K_v(1+v, v) - 1
+
+    # -----------------------------------------------------------------
+    # 238-cell breakpoint set from Sun (6.24)
+    # -----------------------------------------------------------------
+    bp = set([QQ(0), QQ(1)])
+    for k in range(20): bp.add(QQ(k)/19)
+    for k in range(21): bp.add(QQ(k)/20)
+    for k in range(41): bp.add(QQ(k)/40)
+    for k in range(42): bp.add(QQ(k)/41)
+    for k in range(41): bp.add(QQ(2*k+1)/82)
+    for k in range(42): bp.add(QQ(2*k+1)/84)
+    for k in range(61): bp.add(QQ(2*k+1)/122)
+    pts = sorted(p for p in bp if 0 <= p <= 1)
+    cells = [(pts[i], pts[i+1]) for i in range(len(pts)-1)]
+    print(f"  Number of cells: {len(cells)}")
+    sys.stdout.flush()
+
+    # -----------------------------------------------------------------
+    # Exact rational quadratic fit per cell
+    # -----------------------------------------------------------------
+    def fit_quadratic(a, b):
+        v1 = a + (b - a) / 4
+        v2 = a + 3*(b - a) / 4
+        Q1 = Q0(v1); Q2 = Q0(v2)
+        s = (Q2 - Q1 + QQ(79)/2 * (v2**2 - v1**2)) / (v2 - v1)
+        c = Q1 + QQ(79)/2 * v1**2 - s*v1
+        v3 = a + (b - a) / 2
+        if Q0(v3) != -QQ(79)/2 * v3**2 + s*v3 + c:
+            raise AssertionError(f"Q_0 not quadratic on ({a}, {b})")
+        return s, c
+
+    print("  Fitting exact quadratics...")
+    sys.stdout.flush()
+    cell_data = []
+    for (a, b) in cells:
+        s, c = fit_quadratic(a, b)
+        cell_data.append((a, b, s, c))
+    print(f"  Fitted {len(cell_data)} quadratics")
+    sys.stdout.flush()
+
+    # -----------------------------------------------------------------
+    # Bernoulli numbers for Euler-Maclaurin
+    # -----------------------------------------------------------------
+    B_2k = [RBF(bernoulli(2*k)) for k in range(1, 14)]
+    B26_abs_rat = abs(Rational(bernoulli(26)))
+
+    # -----------------------------------------------------------------
+    # Enclosures of psi, zeta(2,.), log Gamma at x in [65, 66]
+    # -----------------------------------------------------------------
+    def zeta2_large(x):
+        total = RBF(1)/x + RBF(1)/(2*x*x)
+        for k in range(1, 13):
+            total += B_2k[k-1] / x**(2*k + 1)
+        return total + RBF(0, B26_abs_rat / Integer(65)**27)
+
+    def psi_large(x):
+        total = x.log() - RBF(1)/(2*x)
+        for k in range(1, 13):
+            total -= B_2k[k-1] / (2*k * x**(2*k))
+        return total + RBF(0, B26_abs_rat / (26 * Integer(65)**26))
+
+    def log_gamma_large(x):
+        log2pi = (RBF(2) * RBF.pi()).log()
+        total = (x - RBF(1)/2) * x.log() - x + log2pi/2
+        for k in range(1, 13):
+            total += B_2k[k-1] / (2*k * (2*k - 1) * x**(2*k - 1))
+        return total + RBF(0, B26_abs_rat / (26 * 25 * Integer(65)**25))
+
+    # -----------------------------------------------------------------
+    # Shift by 64 to reach argument 1 + v, v in [0, 1]
+    # -----------------------------------------------------------------
+    def zeta2_1v(v):
+        large = zeta2_large(RBF(65) + v)
+        small = sum(RBF(1) / (RBF(k) + v)**2 for k in range(1, 65))
+        return small + large
+
+    def psi_1v(v):
+        large = psi_large(RBF(65) + v)
+        small = sum(RBF(1) / (RBF(k) + v) for k in range(1, 65))
+        return large - small
+
+    def log_gamma_1v(v):
+        large = log_gamma_large(RBF(65) + v)
+        small = sum((RBF(k) + v).log() for k in range(1, 65))
+        return large - small
+
+    # -----------------------------------------------------------------
+    # Antiderivative F_J(v)
+    # -----------------------------------------------------------------
+    def F_J(v, s, c):
+        v_R = RBF(v)
+        s_R = RBF(s); c_R = RBF(c)
+        Qv  = -RBF(79)/2 * v_R**2 + s_R*v_R + c_R
+        Qpv = -RBF(79) * v_R + s_R
+        return (-Qv/2 * zeta2_1v(v_R) + Qpv/2 * psi_1v(v_R)
+                + RBF(79)/2 * log_gamma_1v(v_R) - RBF(5)/2 * psi_1v(v_R))
+
+    # -----------------------------------------------------------------
+    # Sum endpoint differences
+    # -----------------------------------------------------------------
+    print(f"  Evaluating F_J at {2*len(cell_data)} endpoints...")
+    sys.stdout.flush()
+    t0 = time.time()
+    total = RBF(0)
+    for i, (a, b, s, c) in enumerate(cell_data):
+        total += F_J(b, s, c) - F_J(a, s, c)
+        if (i+1) % 20 == 0:
+            print(f"    {i+1}/{len(cell_data)} cells done  "
+                  f"({time.time()-t0:.1f} s)")
+            sys.stdout.flush()
+    print(f"  Done in {time.time()-t0:.1f} s")
+
+    c_odd_cert = -total / RBF(400)
+
+    # The published value of c_odd from Sun (6.23):
+    #   c_odd = 0.006276744728100982604597600317605548503...
+    # We test the target = this value truncated to 40 significant digits.
+    target = RBF('0.0062767447281009826045976003176055485032')
+
+    print()
+    print("  Rigorous interval certificate for c_odd:")
+    print(f"    Ball center:     {c_odd_cert.center()}")
+    print(f"    Ball radius:     {c_odd_cert.rad()}")
+
+    lo = c_odd_cert.lower()
+    hi = c_odd_cert.upper()
+    contains = (RF(lo) <= RF(target)) and (RF(target) <= RF(hi))
+    print(f"    Contains target: {contains}")
+    print()
+    print(f"  Interval lower:  {lo}")
+    print(f"  Interval upper:  {hi}")
+    print(f"  Width:           {c_odd_cert.rad()}")
+    print()
+    print("  Target (Sun 6.23 truncated):", target)
+    print()
+    print("  Compare with Sun's (6.22):")
+    print("    -0.006276744728100982604597600317605549 < I_odd")
+    print("    I_odd < -0.006276744728100982604597600317605548")
+    print("    i.e. c_odd = -I_odd = 0.0062767447281009826...")
+    sys.stdout.flush()
+
+    return c_odd_cert
+
+
+module_2_1()

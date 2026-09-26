@@ -1,0 +1,137 @@
+#!/usr/bin/env sage
+# -*- coding: utf-8 -*-
+"""
+Module 2.2b: Lambda_mid certificate (20-digit precision).
+Prints Exact: True when the computed value matches Sun's target
+to 20 significant digits.
+"""
+
+from sage.all import *
+import time
+import sys
+
+def module_2_2b():
+    print("=" * 72)
+    print("Module 2.2b: Lambda_mid certificate (20-digit precision)")
+    print("=" * 72)
+    sys.stdout.flush()
+
+    rho = QQ(1) / 20
+
+    def mod_rat(a, m):
+        return a - m * (a/m).floor()
+
+    def E_rho(t):
+        t = QQ(t)
+        a = (1 / t).floor()
+        d = 1 - a * t
+        k = ((2 + rho) / t).floor()
+        e = 2 + rho - k * t
+        def z(x):
+            return mod_rat(t/2 - x, t)
+        xb = set([QQ(0), t, t/2])
+        if 0 <= e <= t:
+            xb.add(e)
+        for bpv in [mod_rat(t/2 - d, t), mod_rat(t/2 - rho, t)]:
+            if 0 <= bpv <= t:
+                xb.add(bpv)
+        xb = sorted(x for x in xb if 0 <= x <= t)
+        events = []
+        for i in range(len(xb) - 1):
+            xL, xR = xb[i], xb[i+1]
+            if xR <= xL: continue
+            w = xR - xL
+            xm = (xL + xR) / 2
+            zm = z(xm)
+            Fm = k - (1 if xm > e else 0)
+            Am = 2*(a + (1 if zm < d else 0)) - (1 if zm < rho else 0) - Fm
+            if xm < t/2:
+                levels = [Am + 2*j - 4 for j in range(1, Fm+1)] + [Am + 2*Fm]
+            else:
+                levels = [Am + 2*j - 4 for j in range(1, Fm+2)]
+            for lv in levels:
+                events.append((lv, w))
+        events.sort(key=lambda p: p[0])
+        tot = QQ(0); cost = QQ(0)
+        for (lv, w) in events:
+            if tot + w <= rho:
+                tot += w; cost += lv * w
+            else:
+                cost += lv * (rho - tot); break
+        b = (2 / t).floor()
+        c = 2 - b * t
+        return b * rho + max(QQ(0), rho + c - t) + cost
+
+    def is_affine(a, b, pts=5):
+        Ea, Eb = E_rho(a), E_rho(b)
+        for k in range(1, pts):
+            tk = a + (b - a) * QQ(k) / pts
+            if E_rho(tk) != Ea + (Eb - Ea) * QQ(k) / pts:
+                return False
+        return True
+
+    # ---- Structural candidates ----
+    print("  Building structural candidates...")
+    sys.stdout.flush()
+    t0 = time.time()
+    bp_set = set([rho, QQ(1)])
+    for n in range(1, 401):
+        for c in [QQ(1), QQ(2), QQ(41)/20]:
+            v = c / n
+            if rho < v < 1:
+                bp_set.add(v)
+    bp = sorted(bp_set)
+    print(f"  Candidates: {len(bp)}  ({time.time()-t0:.1f}s)")
+    sys.stdout.flush()
+
+    # ---- Adaptive integration ----
+    def integrate(a, b, depth=0, max_depth=50):
+        if is_affine(a, b, pts=7):
+            return (E_rho(a) + E_rho(b)) * (b - a) / 2
+        if depth >= max_depth:
+            return (E_rho(a) + E_rho(b)) * (b - a) / 2
+        m = (a + b) / 2
+        return integrate(a, m, depth+1, max_depth) \
+             + integrate(m, b, depth+1, max_depth)
+
+    print("  Integrating...")
+    sys.stdout.flush()
+    t0 = time.time()
+    total = QQ(0)
+    for i in range(len(bp) - 1):
+        total += integrate(bp[i], bp[i+1])
+        if (i+1) % 100 == 0:
+            print(f"    {i+1}/{len(bp)-1}  ({time.time()-t0:.1f}s)")
+            sys.stdout.flush()
+    print(f"  Done in {time.time()-t0:.1f}s")
+    sys.stdout.flush()
+
+    # ---- Compare at 20-digit precision ----
+    target_num = Integer('33042423784278900654572890582560690565493664595111')
+    target_den = Integer('187362234062518051579626183549876762148305272280000')
+    target = target_num / target_den
+    diff = total - target
+    absdiff = abs(float(diff))
+
+    print()
+    print(f"  Computed:   {float(total):.40f}")
+    print(f"  Target:     {float(target):.40f}")
+    print(f"  |Diff|:     {absdiff:.4e}")
+
+    # 20-digit precision means |diff| < 10^(-20) approximately
+    # (since Lambda_mid is order 0.18, 20 significant digits means
+    # |diff| < 1e-20).
+    exact_20 = absdiff < 1e-20
+    print(f"  Exact (20-digit): {exact_20}")
+    print()
+
+    if exact_20:
+        print("  *** MODULE 2.2b: EXACT TO 20 DIGITS ***")
+    else:
+        print("  *** MODULE 2.2b: FAILED 20-DIGIT CHECK ***")
+    sys.stdout.flush()
+
+    return total, target
+
+
+module_2_2b()
